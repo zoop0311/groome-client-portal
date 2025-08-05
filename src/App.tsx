@@ -23,13 +23,13 @@ import {
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: 'AIzaSyDZ2epHZaJBNRddmCrxnzrUIV_LvuCPeV0',
-  authDomain: 'clientportal-5fe70.firebaseapp.com',
-  projectId: 'clientportal-5fe70',
-  storageBucket: 'clientportal-5fe70.firebasestorage.app',
-  messagingSenderId: '668500899292',
-  appId: '1:668500899292:web:7dcc9599800a2748d18b19',
-  measurementId: 'G-G83RZDE6VX',
+  apiKey: '',
+  authDomain: '',
+  projectId: '',
+  storageBucket: '',
+  messagingSenderId: '',
+  appId: '',
+  measurementId: '',
 };
 
 // Initialize Firebase and its services
