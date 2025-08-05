@@ -2,9 +2,11 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   getAuth,
-  signInAnonymously,
-  signInWithCustomToken,
   onAuthStateChanged,
+  signInWithCustomToken,
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  signOut,
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -21,24 +23,32 @@ import {
   getDocs,
 } from 'firebase/firestore';
 
+//to fix red lines 
+interface FirebaseContextType {
+  db: any;
+  auth: any;
+  userId: string | null;
+  showMessage: (message: string, type?: 'success' | 'error' | 'info') => void;
+}
+
+// Context for Firebase and User
+const FirebaseContext = createContext<FirebaseContextType | null>(null);
+
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
-  measurementId: '',
+  apiKey: 'AIzaSyDZ2epHZaJBNRddmCrxnzrUIV_LvuCPeV0',
+  authDomain: 'clientportal-5fe70.firebaseapp.com',
+  projectId: 'clientportal-5fe70',
+  storageBucket: 'clientportal-5fe70.firebasestorage.app',
+  messagingSenderId: '668500899292',
+  appId: '1:668500899292:web:7dcc9599800a2748d18b19',
+  measurementId: 'G-G83RZDE6VX',
 };
 
 // Initialize Firebase and its services
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
-
-// Context for Firebase and User
-const FirebaseContext = createContext(null);
 
 // Custom Message Box Component
 const MessageBox = ({ message, type, onClose }) => {
@@ -85,6 +95,81 @@ const LoadingSpinner = () => (
   </div>
 );
 
+// Login Section Component
+const LoginSection = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { auth, showMessage } = useContext(FirebaseContext);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      showMessage('Login successful!', 'success');
+    } catch (error) {
+      console.error('Login error:', error);
+      showMessage(`Login failed: ${error.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+        <h2 className="text-2xl font-bold text-center">Client Login</h2>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Password
+            </label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full px-4 py-2 rounded-md font-semibold text-white shadow-md transition duration-300 ease-in-out ${
+              loading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+          >
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // Main App Component
 const App = () => {
   const [userId, setUserId] = useState(null);
@@ -98,23 +183,7 @@ const App = () => {
       if (user) {
         setUserId(user.uid);
       } else {
-        const initialAuthToken =
-          typeof __initial_auth_token !== 'undefined'
-            ? __initial_auth_token
-            : null;
-        try {
-          if (initialAuthToken) {
-            await signInWithCustomToken(auth, initialAuthToken);
-          } else {
-            await signInAnonymously(auth);
-          }
-        } catch (error) {
-          console.error('Firebase authentication error:', error);
-          setMessageBox({
-            message: `Authentication failed: ${error.message}`,
-            type: 'error',
-          });
-        }
+        setUserId(null);
       }
       setIsAuthReady(true);
     });
@@ -125,6 +194,18 @@ const App = () => {
   const showMessage = (message, type = 'success') => {
     setMessageBox({ message, type });
     setTimeout(() => setMessageBox({ message: '', type: '' }), 5000);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      showMessage('Signed out successfully!', 'success');
+      setUserId(null);
+      setCurrentPage('dashboard');
+    } catch (error) {
+      console.error('Sign out error:', error);
+      showMessage(`Sign out failed: ${error.message}`, 'error');
+    }
   };
 
   if (!isAuthReady) {
@@ -164,30 +245,52 @@ const App = () => {
           message={messageBox.message}
           type={messageBox.type}
           onClose={() => setMessageBox({ message: '', type: '' })}
-        />
+          />
         <header className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 shadow-lg rounded-b-lg">
-          <div className="container mx-auto flex justify-between items-center">
-            <h1 className="text-3xl font-bold tracking-tight">
-              Groome Consulting Group Client Portal
-            </h1>
-            <nav>
-              <button
-                onClick={() => navigateTo('dashboard')}
-                className="px-5 py-2 rounded-full bg-blue-700 hover:bg-blue-900 transition duration-300 ease-in-out shadow-md text-lg font-medium"
-              >
-                Dashboard
-              </button>
-            </nav>
-          </div>
-        </header>
+            <div className="container mx-auto flex justify-between items-center">
+              <h1 className="text-3xl font-bold tracking-tight">
+                Groome Consulting Group Client Portal
+              </h1>
+              <nav className="flex items-center space-x-4">
+                {userId ? (
+                  <>
+                    <button
+                      onClick={() => navigateTo('dashboard')}
+                      className="px-5 py-2 rounded-full bg-blue-700 hover:bg-blue-900 transition duration-300 ease-in-out shadow-md text-lg font-medium"
+                    >
+                      Dashboard
+                    </button>
+                    <button
+                      onClick={() => navigateTo('support')}
+                      className="px-5 py-2 ml-4 rounded-full bg-blue-700 hover:bg-blue-900 transition duration-300 ease-in-out shadow-md text-lg font-medium"
+                    >
+                      Support
+                    </button>
+                    <button
+                      onClick={handleSignOut}
+                      className="px-5 py-2 ml-4 rounded-full bg-red-600 hover:bg-red-700 transition duration-300 ease-in-out shadow-md text-lg font-medium"
+                    >
+                      Sign Out
+                    </button>
+                  </>
+                ) : null}
+              </nav>
+            </div>
+          </header>
 
         <main className="container mx-auto p-6 mt-8">
-          {currentPage === 'dashboard' && <Dashboard navigateTo={navigateTo} />}
-          {currentPage === 'projectDetail' && selectedProject && (
-            <ProjectDetail project={selectedProject} navigateTo={navigateTo} />
+          {userId ? (
+            <>
+              {currentPage === 'dashboard' && <Dashboard navigateTo={navigateTo} />}
+              {currentPage === 'projectDetail' && selectedProject && (
+                <ProjectDetail project={selectedProject} navigateTo={navigateTo} />
+              )}
+              {currentPage === 'accountInfo' && <AccountInfo />}
+              {currentPage === 'support' && <Support />}
+            </>
+          ) : (
+            <LoginSection />
           )}
-          {currentPage === 'accountInfo' && <AccountInfo />}
-          {currentPage === 'support' && <Support />}
         </main>
 
         <footer className="bg-gray-800 text-white p-6 mt-12 rounded-t-lg shadow-inner">
@@ -197,10 +300,7 @@ const App = () => {
               rights reserved.
             </p>
             <p className="mt-2">
-              Your User ID:{' '}
-              <span className="font-mono text-blue-300 break-all">
-                {userId}
-              </span>
+              User Status: {userId ? `Logged in as ${userId}` : 'Not logged in'}
             </p>
           </div>
         </footer>
@@ -1258,12 +1358,11 @@ const CommunicationSection = ({ communications, onSendMessage }) => {
         <button
           onClick={handleSendClick}
           disabled={!newMessage.trim() && !selectedFile}
-          className={`px-6 py-3 rounded-lg font-semibold shadow-md transition duration-300 ease-in-out
-                                ${
-                                  newMessage.trim() || selectedFile
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                    : 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                                }`}
+          className={`px-6 py-3 rounded-lg font-semibold shadow-md transition duration-300 ease-in-out ${
+            newMessage.trim() || selectedFile
+              ? 'bg-blue-600 text-white hover:bg-blue-700'
+              : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+          }`}
         >
           Send
         </button>
@@ -1274,25 +1373,77 @@ const CommunicationSection = ({ communications, onSendMessage }) => {
 
 // AccountInfo Component
 const AccountInfo = () => {
-  const { userId } = useContext(FirebaseContext);
+  const { db, userId, showMessage } = useContext(FirebaseContext) as FirebaseContextType;
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db || !userId) {
+      setLoading(false);
+      return;
+    }
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    
+    // Listen for real-time updates to the user's profile document
+    const userProfileDocRef = doc(db, `artifacts/${appId}/users/${userId}/profile`, 'info');
+    
+    const unsubscribe = onSnapshot(
+      userProfileDocRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setProfile(docSnap.data());
+        } else {
+          setProfile(null);
+        }
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error fetching user profile:', error);
+        showMessage(`Failed to load account info: ${error.message}`, 'error');
+        setLoading(false);
+      }
+    );
+    
+    return () => unsubscribe();
+  }, [db, userId, showMessage]);
+
+  if (loading) {
+    return (
+      <div className="p-4 bg-gray-50 rounded-lg shadow-inner">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 bg-gray-50 rounded-lg shadow-inner">
       <h3 className="text-2xl font-semibold mb-4 text-blue-600">
         Account Information
       </h3>
       <div className="bg-white p-6 rounded-lg shadow-md">
-        <p className="text-lg font-medium">
-          User ID: <span className="font-mono text-gray-700">{userId}</span>
-        </p>
-        <p className="mt-4 text-sm text-gray-500">
-          This is a simplified view. More account details would be displayed
-          here.
-        </p>
+        {profile ? (
+          <>
+            <p className="text-lg font-medium">
+              Name: <span className="font-mono text-gray-700">{profile.firstName} {profile.lastName}</span>
+            </p>
+            <p className="text-lg font-medium mt-2">
+              Email: <span className="font-mono text-gray-700">{profile.email}</span>
+            </p>
+            <p className="text-lg font-medium mt-2">
+              User ID: <span className="font-mono text-gray-700">{userId}</span>
+            </p>
+          </>
+        ) : (
+          <p className="text-lg text-gray-600">
+            No profile information found. Please add a profile document to your Firestore.
+          </p>
+        )}
       </div>
     </div>
   );
 };
 
+// Support Component
 // Support Component
 const Support = () => {
   const [formData, setFormData] = useState({
@@ -1300,21 +1451,31 @@ const Support = () => {
     message: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { showMessage } = useContext(FirebaseContext);
+  const { db, showMessage } = useContext(FirebaseContext);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      // Add a new document to a 'supportRequests' collection
+      await addDoc(collection(db, 'supportRequests'), {
+        ...formData,
+        timestamp: new Date().toISOString(),
+        status: 'pending',
+      });
       console.log('Support form submitted:', formData);
       setIsSubmitting(false);
       showMessage('Your support request has been submitted!', 'success');
       setFormData({ subject: '', message: '' });
-    }, 1500);
+    } catch (error) {
+      console.error('Error submitting support request:', error);
+      setIsSubmitting(false);
+      showMessage(`Submission failed: ${error.message}`, 'error');
+    }
   };
 
   return (
